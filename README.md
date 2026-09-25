@@ -41,6 +41,18 @@ python run_3d_simulator.py --deterministic --frames 60 --headless
 
 ---
 
+## Running the Standalone Executable (Windows)
+
+No Python installation required.
+
+1. Download **`AstraTrack-v1.0-Windows.zip`** from the [GitHub Releases](https://github.com/sachusorav/astratrack_SIH/releases) page.
+2. Extract the ZIP archive completely to any folder.
+3. Double-click **`AstraTrack.exe`** inside the extracted `AstraTrack` folder.
+
+> **Note on Windows SmartScreen:** Because this executable is built from source for SIH 2026 without a paid code-signing certificate, Windows SmartScreen may show a *"Windows protected your PC"* popup. Click **More info** -> **Run anyway** to launch.
+
+---
+
 ## Interactive Controls
 
 Start the simulator once and drive the entire demo live — no restarts required.
