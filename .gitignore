@@ -3,3 +3,10 @@ __pycache__/
 .venv/
 venv/
 .env
+.pytest_cache/
+.vscode/
+.idea/
+outputs/reports/
+outputs/test_exports/
+outputs/test_experiments_store/
+*.log

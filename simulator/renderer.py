@@ -86,7 +86,7 @@ class Renderer3D:
     telemetry rendering, and picture-in-picture sensor view.
     """
 
-    def __init__(self, width: int = 1280, height: int = 720):
+    def __init__(self, width: int = 1920, height: int = 1080):
         self.width = width
         self.height = height
 
@@ -168,9 +168,10 @@ class Renderer3D:
         if self.show_ground_grid:
             self._draw_ground_reference(frame, view_mat, proj_mat)
 
-        # 3. Coordinate axes
+        # 3. Coordinate axes & Viewport Orientation Compass
         if self.show_coordinate_axes:
             self._draw_coordinate_axes(frame, view_mat, proj_mat)
+            self._draw_orientation_compass(frame, view_mat)
 
         # 4. Ground station & tracking gimbal pedestal
         self._draw_ground_station(frame, camera, view_mat, proj_mat)
@@ -333,6 +334,42 @@ class Renderer3D:
                 cv2.putText(frame, label, (line[1][0] + 5, line[1][1] - 2),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1, cv2.LINE_AA)
 
+    def _draw_orientation_compass(self, frame: np.ndarray, view_mat: np.ndarray):
+        """
+        Draw a persistent 3D orientation compass indicator in the lower-left corner
+        of the viewport canvas, fully synchronized with observer camera rotation matrix.
+        """
+        # Canvas center for lower-left compass HUD disc
+        cx, cy = 85, self.height - 85
+        r_base = 36.0
+
+        # Draw aerospace dark HUD background disc
+        cv2.circle(frame, (cx, cy), 42, (15, 20, 28), -1, cv2.LINE_AA)
+        cv2.circle(frame, (cx, cy), 42, (45, 55, 75), 1, cv2.LINE_AA)
+        cv2.putText(frame, "COMPASS", (cx - 24, cy + 38),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.32, AerospaceColors.HUD_TEXT_MUTED, 1, cv2.LINE_AA)
+
+        # Extract 3x3 orientation rotation matrix from view_mat
+        R = view_mat[:3, :3]
+
+        axes = [
+            (np.array([1.0, 0.0, 0.0]), AerospaceColors.AXIS_X_EAST, "E"),
+            (np.array([0.0, 1.0, 0.0]), AerospaceColors.AXIS_Y_ZENITH, "Y"),
+            (np.array([0.0, 0.0, 1.0]), AerospaceColors.AXIS_Z_NORTH, "N"),
+        ]
+
+        # Project 3D basis vectors into 2D HUD space using active observer view matrix
+        for v_world, color, label in axes:
+            v_cam = R @ v_world
+            dx = int(r_base * v_cam[0])
+            dy = int(-r_base * v_cam[1])  # Negate Y for image coordinate system
+
+            end_x, end_y = cx + dx, cy + dy
+            cv2.line(frame, (cx, cy), (end_x, end_y), color, 2, cv2.LINE_AA)
+            cv2.circle(frame, (end_x, end_y), 3, color, -1, cv2.LINE_AA)
+            cv2.putText(frame, label, (end_x + (4 if dx >= 0 else -10), end_y + (4 if dy >= 0 else -4)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.38, color, 1, cv2.LINE_AA)
+
     def _draw_ground_station(self, frame: np.ndarray, camera: TrackingCamera3D,
                              view: np.ndarray, proj: np.ndarray):
         """Draw ground station pedestal and gimbal orientation."""
@@ -436,8 +473,12 @@ class Renderer3D:
         # Slant range & Target label tag
         dist_m = np.linalg.norm(target.position - camera.position)
         tag = f"TGT-01 [{dist_m:.1f}m]"
-        cv2.putText(frame, tag, (x + s + 5, y - s + 4),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.35, AerospaceColors.HUD_TEXT_PRIMARY, 1, cv2.LINE_AA)
+        # Background box for target label readability
+        (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+        cv2.rectangle(frame, (x + s + 6, y - s - th - 4), (x + s + 10 + tw, y - s + 4), (10, 14, 22), -1)
+        cv2.rectangle(frame, (x + s + 6, y - s - th - 4), (x + s + 10 + tw, y - s + 4), lock_color, 1)
+        cv2.putText(frame, tag, (x + s + 8, y - s - 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
 
         # Ground projection shadow (altitude plumb line)
         ground_pt = np.array([target.position[0], 0.0, target.position[2]])
@@ -637,21 +678,21 @@ class Renderer3D:
         # Left Telemetry Card: Target Kinematics & Pointing
         card_x = 20
         card_y = 55
-        card_w = 260
-        card_h = 295
+        card_w = 320
+        card_h = 340
 
         # Background overlay for readability
         overlay = frame.copy()
         cv2.rectangle(overlay, (card_x, card_y), (card_x + card_w, card_y + card_h),
                       AerospaceColors.PANEL_BG, -1)
-        cv2.addWeighted(overlay, 0.85, frame, 0.15, 0, frame)
+        cv2.addWeighted(overlay, 0.90, frame, 0.10, 0, frame)
         cv2.rectangle(frame, (card_x, card_y), (card_x + card_w, card_y + card_h),
-                      AerospaceColors.PANEL_BORDER, 1)
+                      AerospaceColors.PANEL_BORDER, 2)
 
         # Section Header
-        cv2.putText(frame, "TELEMETRY & POINTING", (card_x + 10, card_y + 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.40, AerospaceColors.HUD_ACCENT, 1, cv2.LINE_AA)
-        cv2.line(frame, (card_x + 10, card_y + 26), (card_x + card_w - 10, card_y + 26),
+        cv2.putText(frame, "TELEMETRY & POINTING", (card_x + 12, card_y + 24),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, AerospaceColors.HUD_ACCENT, 2, cv2.LINE_AA)
+        cv2.line(frame, (card_x + 10, card_y + 30), (card_x + card_w - 10, card_y + 30),
                  AerospaceColors.PANEL_BORDER, 1)
 
         # Compute values
@@ -673,13 +714,13 @@ class Renderer3D:
             ("Scenario", f"{telem.get('scenario_name', 'Linear')}"),
         ]
 
-        ty = card_y + 48
+        ty = card_y + 56
         for label, val in rows:
-            cv2.putText(frame, label, (card_x + 12, ty),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.34, AerospaceColors.HUD_TEXT_MUTED, 1, cv2.LINE_AA)
-            cv2.putText(frame, val, (card_x + 130, ty),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.34, AerospaceColors.HUD_TEXT_PRIMARY, 1, cv2.LINE_AA)
-            ty += 24
+            cv2.putText(frame, label, (card_x + 14, ty),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, AerospaceColors.HUD_TEXT_MUTED, 1, cv2.LINE_AA)
+            cv2.putText(frame, val, (card_x + 160, ty),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, AerospaceColors.HUD_TEXT_PRIMARY, 2, cv2.LINE_AA)
+            ty += 28
 
         # Pipeline Card (shown only when --pipeline is active)
         if telem.get("pipeline_active", False):

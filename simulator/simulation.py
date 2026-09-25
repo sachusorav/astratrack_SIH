@@ -39,7 +39,7 @@ class Simulation3D:
     """
 
     def __init__(self, scenario: Optional[Scenario] = None,
-                 width: int = 1280, height: int = 720,
+                 width: int = 1920, height: int = 1080,
                  deterministic: bool = False,
                  fixed_dt: float = 0.02,
                  use_pipeline: bool = False,
@@ -166,6 +166,19 @@ class Simulation3D:
         if self._pipeline is not None:
             self._pipeline.reset()
 
+        # Auto-scale initial camera orbit target and distance for clean scenario framing
+        self.auto_frame_scenario()
+
+    def auto_frame_scenario(self):
+        """Auto-calculate target position/orbit center and scale camera orbit distance for current scenario."""
+        if self.target is None or self.renderer is None:
+            return
+        tgt_pos = self.target.position
+        # Orbit center focus
+        self.renderer.orbit_target = np.array([tgt_pos[0] * 0.45, tgt_pos[1] * 0.75, tgt_pos[2] * 0.45], dtype=np.float64)
+        dist = float(np.linalg.norm(tgt_pos - self.camera.position))
+        self.renderer.orbit_distance = max(450.0, min(2200.0, dist * 0.85))
+
     @property
     def node_count(self) -> int:
         """Number of active nodes: 1 for ground_to_sat, 2 for sat_to_sat."""
@@ -183,6 +196,73 @@ class Simulation3D:
     def toggle_pause(self):
         """Toggle simulation pause state."""
         self.is_paused = not self.is_paused
+
+    # ------------------------------------------------------------------ #
+    # Dynamic Runtime Pipeline Controls
+    # ------------------------------------------------------------------ #
+
+    def ensure_pipeline(self):
+        """Ensure that perception pipeline is instantiated."""
+        if self._pipeline is None:
+            from simulator.pipeline3d import Pipeline3D
+            self._pipeline = Pipeline3D(detector_type=self.detector_type)
+            self.use_pipeline = True
+        return self._pipeline
+
+    def set_pid_gains(self, kp: float, ki: float, kd: float):
+        """Update PID gains in the pipeline controller."""
+        pipe = self.ensure_pipeline()
+        pipe.controller.set_parameters(kp=kp, ki=ki, kd=kd)
+
+    def set_detector_type(self, detector_type: str):
+        """Switch detector backend ('classical' or 'ai')."""
+        pipe = self.ensure_pipeline()
+        from perception.factory import create_detector
+        pipe.detector = create_detector(detector_type=detector_type, confidence_threshold=0.30)
+        self.detector_type = detector_type
+
+    def set_kalman_enabled(self, enabled: bool):
+        """Toggle Kalman filter tracking."""
+        pipe = self.ensure_pipeline()
+        # Toggle Kalman filter operation
+        pipe.kalman.prediction_enabled = enabled
+
+    def set_prediction_enabled(self, enabled: bool):
+        """Toggle trajectory prediction."""
+        pipe = self.ensure_pipeline()
+        pipe.kalman.prediction_enabled = enabled
+
+    def set_controller_mode(self, mode):
+        """Set controller mode (PID_CONTROL, P_CONTROL, DIRECT)."""
+        pipe = self.ensure_pipeline()
+        from control.camera_controller import ControllerMode
+        if isinstance(mode, str):
+            mode = ControllerMode[mode]
+        pipe.controller.set_mode(mode)
+
+    def set_target_speed(self, speed: float):
+        """Update primary target speed."""
+        if self.target is not None:
+            self.target.config.speed = speed
+            # Re-normalize velocity vector with new speed
+            v_norm = np.linalg.norm(self.target.velocity)
+            if v_norm > 1e-3:
+                self.target.velocity = (self.target.velocity / v_norm) * speed
+
+    def set_disturbance_level(self, level_name: str):
+        """Set disturbance intensity preset dynamically."""
+        mult_map = {
+            "NORMAL": 1.0,
+            "LIGHT DISTURBANCE": 1.5,
+            "MODERATE DISTURBANCE": 2.5,
+            "SEVERE DISTURBANCE": 4.0,
+            "EXTREME STRESS TEST": 6.0,
+        }
+        mult = mult_map.get(level_name, 1.0)
+        if self.target is not None:
+            self.target.config.noise_sigma = 0.1 * mult
+        if self.camera is not None:
+            self.camera.config.vibration_amplitude = 0.05 * mult
 
     # ------------------------------------------------------------------ #
     # Stepping & Physics

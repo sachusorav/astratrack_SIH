@@ -181,7 +181,7 @@ class Dashboard:
     def _create_top_bar(self):
         with dpg.child_window(height=52, border=True):
             with dpg.group(horizontal=True):
-                dpg.add_text("★ ASTRATRACK", color=(0, 230, 118))
+                dpg.add_text("ASTRATRACK", color=(0, 230, 118))
                 dpg.add_text("| Aerospace FSOC Tracking Simulator | SIH 2026", color=(140, 150, 170))
 
                 dpg.add_spacer(width=20)
@@ -201,7 +201,7 @@ class Dashboard:
                 dpg.add_text("T+00:00.0", tag="top_clock_text", color=(255, 214, 0))
 
                 dpg.add_spacer(width=30)
-                dpg.add_button(label="★ START JUDGE DEMO (90s)", callback=self._start_judge_demo, tag="btn_judge_demo")
+                dpg.add_button(label="START JUDGE DEMO (90s)", callback=self._start_judge_demo, tag="btn_judge_demo")
                 dpg.add_button(label="Export Audit PDF", callback=self._export_pdf_report)
                 dpg.add_button(label="Pause (Space)", callback=self.toggle_pause)
                 dpg.add_button(label="Reset (R)", callback=self.reset_simulation)
@@ -273,7 +273,7 @@ class Dashboard:
             dpg.add_separator()
 
             # Scenario selection
-            scenarios = [f"{s.id} — {s.name}" for s in GLOBAL_REGISTRY.list_all()]
+            scenarios = [f"{s.id} - {s.name}" for s in GLOBAL_REGISTRY.list_all()]
             dpg.add_text("Scenario Preset:")
             dpg.add_combo(scenarios, default_value=scenarios[0], callback=self._on_scenario_select, tag="combo_scenario")
 
@@ -329,22 +329,22 @@ class Dashboard:
                 # Plot 1: Tracking Error
                 with dpg.plot(label="Boresight Tracking Error (px)", height=200, width=460):
                     dpg.add_plot_legend()
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frame", no_tick_labels=True)
-                    with dpg.plot_axis(dpg.mvYAxis, label="Pixels"):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frame", tag="plot_err_xaxis")
+                    with dpg.plot_axis(dpg.mvYAxis, label="Pixels", tag="plot_err_yaxis"):
                         dpg.add_line_series([], [], label="Error", tag="plot_err_series")
 
                 # Plot 2: Detection Confidence
                 with dpg.plot(label="Detector Confidence", height=200, width=440):
                     dpg.add_plot_legend()
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frame", no_tick_labels=True)
-                    with dpg.plot_axis(dpg.mvYAxis, label="Score [0-1]"):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frame", tag="plot_conf_xaxis")
+                    with dpg.plot_axis(dpg.mvYAxis, label="Score [0-1]", tag="plot_conf_yaxis"):
                         dpg.add_line_series([], [], label="Confidence", tag="plot_conf_series")
 
                 # Plot 3: Frame Rate
                 with dpg.plot(label="System Frame Rate (FPS)", height=200, width=460):
                     dpg.add_plot_legend()
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frame", no_tick_labels=True)
-                    with dpg.plot_axis(dpg.mvYAxis, label="FPS"):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frame", tag="plot_fps_xaxis")
+                    with dpg.plot_axis(dpg.mvYAxis, label="FPS", tag="plot_fps_yaxis"):
                         dpg.add_line_series([], [], label="Rate", tag="plot_fps_series")
 
     # ------------------------------------------------------------------ #
@@ -373,7 +373,7 @@ class Dashboard:
         self.judge_demo.reset()
 
     def _on_scenario_select(self, sender, app_data):
-        scen_id = app_data.split("—")[0].strip()
+        scen_id = app_data.split("-")[0].strip()
         scen = get_scenario(scen_id)
         if scen:
             self.world.primary_beacon.set_motion_model(scen.target_config.get("motion_model", "sinusoidal"))
@@ -607,10 +607,25 @@ class Dashboard:
             self._conf_hist.pop(0)
             self._fps_hist.pop(0)
 
-        if self._frame_count % 3 == 0:
+        if len(self._time_hist) > 0:
             dpg.set_value("plot_err_series", [self._time_hist, self._error_hist])
             dpg.set_value("plot_conf_series", [self._time_hist, self._conf_hist])
             dpg.set_value("plot_fps_series", [self._time_hist, self._fps_hist])
+
+            x_min = float(self._time_hist[0])
+            x_max = float(self._time_hist[-1])
+            if x_max <= x_min:
+                x_max = x_min + 1.0
+
+            dpg.set_axis_limits("plot_err_xaxis", x_min, x_max)
+            dpg.set_axis_limits("plot_conf_xaxis", x_min, x_max)
+            dpg.set_axis_limits("plot_fps_xaxis", x_min, x_max)
+
+            max_err = max(5.0, max(self._error_hist) * 1.15) if self._error_hist else 10.0
+            dpg.set_axis_limits("plot_err_yaxis", 0.0, max_err)
+            dpg.set_axis_limits("plot_conf_yaxis", 0.0, 1.05)
+            max_fps = max(70.0, max(self._fps_hist) + 10.0) if self._fps_hist else 70.0
+            dpg.set_axis_limits("plot_fps_yaxis", 0.0, max_fps)
 
     def run(self):
         """Start the interactive GUI rendering loop."""

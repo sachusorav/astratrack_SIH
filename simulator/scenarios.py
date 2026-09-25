@@ -270,9 +270,9 @@ def get_scenario_sat_to_ground() -> Scenario:
     )
     return Scenario(
         id="sat_to_ground",
-        name="Sat → Ground Uplink",
+        name="Sat -> Ground Uplink",
         description="Satellite beacon on descending arc broadcasting to ground optical terminal. High elevation, long range.",
-        category="Satellite ↔ Satellite",
+        category="Satellite <-> Satellite",
         target_config=target,
         camera_config=camera,
         sim_duration_sec=50.0,
@@ -310,7 +310,7 @@ def get_scenario_isl_same_plane() -> Scenario:
         id="isl_same_plane",
         name="ISL Same-Plane",
         description="Bilateral inter-satellite optical link between two co-planar LEO nodes. Stable relative geometry.",
-        category="Satellite ↔ Satellite",
+        category="Satellite <-> Satellite",
         target_config=target,
         camera_config=camera,
         sim_duration_sec=55.0,
@@ -347,7 +347,7 @@ def get_scenario_isl_crosslink() -> Scenario:
         id="isl_crosslink",
         name="ISL Crosslink",
         description="Cross-plane inter-satellite link with high relative angular rate. Fast gimbal demand and pointing precision required.",
-        category="Satellite ↔ Satellite",
+        category="Satellite <-> Satellite",
         target_config=target,
         camera_config=camera,
         sim_duration_sec=45.0,
@@ -389,8 +389,8 @@ MODE_GROUPS: Dict[str, List[str]] = {
 }
 
 MODE_LABELS: Dict[str, str] = {
-    "ground_to_sat": "Ground → Satellite",
-    "sat_to_sat":    "Satellite ↔ Satellite",
+    "ground_to_sat": "Ground -> Satellite",
+    "sat_to_sat":    "Satellite <-> Satellite",
 }
 
 

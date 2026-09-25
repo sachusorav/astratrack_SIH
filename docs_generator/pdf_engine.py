@@ -19,11 +19,13 @@ try:
     )
     from reportlab.pdfgen import canvas
     HAS_REPORTLAB = True
+    CanvasBase = canvas.Canvas
 except ImportError:
     HAS_REPORTLAB = False
+    CanvasBase = object
 
 
-class NumberedCanvas(canvas.Canvas):
+class NumberedCanvas(CanvasBase):
     """Two-pass canvas to dynamically compute and print 'Page X of Y' on aerospace footer."""
 
     def __init__(self, *args, **kwargs):

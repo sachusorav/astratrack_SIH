@@ -74,8 +74,10 @@ class TestExperimentManager(unittest.TestCase):
 
         pdf_path = os.path.join(WORKSPACE_ROOT, "outputs", "test_exports", "test_exp_comp.pdf")
         res_pdf = ExperimentExporter.export_comparison_pdf(comp, pdf_path)
-        self.assertIsNotNone(res_pdf)
-        self.assertTrue(os.path.exists(pdf_path))
+        from experiments.exporter import HAS_REPORTLAB
+        if HAS_REPORTLAB:
+            self.assertIsNotNone(res_pdf)
+            self.assertTrue(os.path.exists(pdf_path))
 
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
